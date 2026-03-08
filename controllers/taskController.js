@@ -1,10 +1,11 @@
 const Task = require('../models/Task');
 const Category = require('../models/Category');
+
 // GET all tasks (with optional date filter)
 const getTasks = async (req, res) => {
   try {
     const { date } = req.query;
-    const query = { user: req.userId };
+    const query = {};
 
     if (date) {
       const selected = new Date(date);
@@ -24,29 +25,11 @@ const getTasks = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch tasks' });
   }
 };
-// const getCategories = async (req, res) => {
-//   try {
-//     // For now, hardcoded dynamic categories; replace with DB query if needed
-//     const categories = [
-//       'Work',
-//       'Personal',
-//       'Health',
-//       'Fitness',
-//       'Learning',
-//       'Chores',
-//       'Finance',
-//       'Social'
-//     ];
-//     res.json(categories);
-//   } catch (err) {
-//     console.error('getCategories error:', err);
-//     res.status(500).json({ error: 'Failed to fetch categories' });
-//   }
-// };
+
 // GET single task by ID
 const getTaskById = async (req, res) => {
   try {
-    const task = await Task.findOne({ _id: req.params.id, user: req.userId });
+    const task = await Task.findOne({ _id: req.params.id });
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
   } catch (err) {
@@ -73,7 +56,6 @@ const createTask = async (req, res) => {
     }
 
     const task = new Task({
-      user: req.userId,
       description,
       taskDate,
       estimatedDays,
@@ -93,12 +75,11 @@ const createTask = async (req, res) => {
 };
 
 // UPDATE task
-// UPDATE task
-const updateTask = async (req, res) => {  // ← Ensure 'const' and exact name
+const updateTask = async (req, res) => {
   try {
     const updates = req.body;
     const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, user: req.userId },
+      { _id: req.params.id },
       updates,
       { new: true, runValidators: true }
     );
@@ -114,7 +95,7 @@ const updateTask = async (req, res) => {  // ← Ensure 'const' and exact name
 // DELETE task
 const deleteTask = async (req, res) => {
   try {
-    const task = await Task.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const task = await Task.findOneAndDelete({ _id: req.params.id });
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json({ message: 'Task deleted' });
   } catch (err) {
@@ -129,7 +110,7 @@ const tickTask = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const task = await Task.findOne({ _id: req.params.id, user: req.userId });
+    const task = await Task.findOne({ _id: req.params.id });
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
     const todayStr = today.toISOString().split('T')[0];
@@ -149,10 +130,11 @@ const tickTask = async (req, res) => {
   }
 };
 
+// GET all categories
 const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ user: req.userId }).sort({ name: 1 });
-    res.json(categories); // Return full [{ _id, name, ... }]
+    const categories = await Category.find({}).sort({ name: 1 });
+    res.json(categories);
   } catch (err) {
     console.error('getCategories error:', err);
     res.status(500).json({ error: 'Failed to fetch categories' });
@@ -166,14 +148,11 @@ const createCategory = async (req, res) => {
     if (!name) {
       return res.status(400).json({ error: 'Category name is required' });
     }
-    const existing = await Category.findOne({ name, user: req.userId });
+    const existing = await Category.findOne({ name });
     if (existing) {
       return res.status(400).json({ error: 'Category already exists' });
     }
-    const category = new Category({
-      name,
-      user: req.userId
-    });
+    const category = new Category({ name });
     await category.save();
     res.status(201).json({ message: 'Category created', name: category.name });
   } catch (err) {
@@ -186,14 +165,14 @@ const createCategory = async (req, res) => {
 const updateCategory = async (req, res) => {
   try {
     const { name } = req.body;
-    const category = await Category.findOne({ _id: req.params.id, user: req.userId });
+    const category = await Category.findOne({ _id: req.params.id });
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
     if (!name) {
       return res.status(400).json({ error: 'New name is required' });
     }
-    const existing = await Category.findOne({ name, user: req.userId, _id: { $ne: req.params.id } });
+    const existing = await Category.findOne({ name, _id: { $ne: req.params.id } });
     if (existing) {
       return res.status(400).json({ error: 'Category name already exists' });
     }
@@ -209,7 +188,7 @@ const updateCategory = async (req, res) => {
 // DELETE category
 const deleteCategory = async (req, res) => {
   try {
-    const category = await Category.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const category = await Category.findOneAndDelete({ _id: req.params.id });
     if (!category) {
       return res.status(404).json({ error: 'Category not found' });
     }
@@ -228,7 +207,6 @@ module.exports = {
   updateTask,
   deleteTask,
   tickTask,
-  getCategories,
   getCategories,
   createCategory,
   updateCategory,

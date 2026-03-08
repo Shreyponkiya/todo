@@ -1,14 +1,11 @@
 const express = require('express');
 const Growth = require('../models/Growth');
-const {protect} = require('../middleware/auth');
 const router = express.Router();
-
-router.use(protect);
 
 // Get all growths
 router.get('/', async (req, res) => {
   try {
-    const query = { user: req.userId };
+    const query = {};
     if (req.query.date) query.date = { $eq: new Date(req.query.date) };
     const growths = await Growth.find(query).sort({ date: -1 });
     res.json(growths);
@@ -20,7 +17,7 @@ router.get('/', async (req, res) => {
 // Add growth
 router.post('/', async (req, res) => {
   try {
-    const growth = new Growth({ ...req.body, user: req.userId });
+    const growth = new Growth(req.body);
     await growth.save();
     res.status(201).json(growth);
   } catch (err) {
@@ -32,7 +29,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const growth = await Growth.findOneAndUpdate(
-      { _id: req.params.id, user: req.userId },
+      { _id: req.params.id },
       req.body,
       { new: true }
     );
@@ -46,7 +43,7 @@ router.put('/:id', async (req, res) => {
 // Delete growth
 router.delete('/:id', async (req, res) => {
   try {
-    const growth = await Growth.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const growth = await Growth.findOneAndDelete({ _id: req.params.id });
     if (!growth) return res.status(404).json({ error: 'Growth not found' });
     res.json({ message: 'Deleted successfully' });
   } catch (err) {
