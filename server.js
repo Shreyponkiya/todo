@@ -10,12 +10,14 @@ dotenv.config();
 
 const app = express();
 
-// === MIDDLEWARE ===
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+// Middleware
+app.use(
+  cors({
+    origin: "*", // ✅ allow all origins
+    credentials: true, // ⚠️ cookies/auth headers (see note below)
+  })
+);
+
 app.use(express.json());
 
 // === ROUTES ===
