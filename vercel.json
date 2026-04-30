@@ -14,8 +14,16 @@
   ],
   "crons": [
     {
-      "path": "/api/send-email/test",
-      "schedule": "* * * * *"
+      "path": "/api/send-email/morning",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/send-email/evening",
+      "schedule": "30 15 * * *"
+    },
+    {
+      "path": "/api/send-email/night",
+      "schedule": "15 18 * * *"
     }
   ]
 }

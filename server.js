@@ -5,6 +5,9 @@ const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 const Task = require('./models/Task');
+const DailyLog = require('./models/DailyLog');
+const Growth = require('./models/Growth');
+const Note = require('./models/Note');
 
 dotenv.config();
 
@@ -91,94 +94,278 @@ const sendDailyEmails = async (time) => {
       completedDates: { $elemMatch: { $gte: todayStart, $lte: todayEnd } }
     }).sort({ taskDate: 1 });
 
-    let emailBody = '';
-    
-    if (pendingTasks.length === 0 && completedTasks.length === 0) {
-      console.log('📭 No tasks to report');
-      return;
-    }
+    // Find today's daily logs
+    const dailyLogs = await DailyLog.find({
+      date: { $gte: todayStart, $lte: todayEnd }
+    }).sort({ date: -1 });
 
-    // Add completed tasks section
+    // Find today's growth entries
+    const growths = await Growth.find({
+      date: { $gte: todayStart, $lte: todayEnd }
+    }).sort({ date: -1 });
+
+    // Find all notes (recent 10)
+    const notes = await Note.find().sort({ createdAt: -1 }).limit(10);
+
+    // Calculate statistics
+    const totalTasks = completedTasks.length + pendingTasks.length;
+    const completedCount = completedTasks.length;
+    const pendingCount = pendingTasks.length;
+    const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
+    // Build HTML email
+    let emailHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; padding: 20px 0; border-bottom: 3px solid #4CAF50; margin-bottom: 30px; }
+    .header h1 { color: #333; margin: 0; font-size: 28px; }
+    .header p { color: #666; margin: 5px 0 0 0; font-size: 14px; }
+    .stats { display: flex; justify-content: space-around; margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; }
+    .stat-box { text-align: center; color: white; }
+    .stat-box h2 { margin: 0; font-size: 36px; }
+    .stat-box p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.9; }
+    .section { margin: 30px 0; }
+    .section-title { color: #333; font-size: 20px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { background-color: #4CAF50; color: white; padding: 12px; text-align: left; font-weight: 600; }
+    td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
+    tr:hover { background-color: #f5f5f5; }
+    .completed { color: #4CAF50; font-weight: bold; }
+    .pending { color: #FF9800; font-weight: bold; }
+    .empty { text-align: center; color: #999; padding: 20px; font-style: italic; }
+    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; color: #666; font-size: 12px; }
+    .time-badge { display: inline-block; padding: 4px 8px; background-color: #2196F3; color: white; border-radius: 4px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📊 Daily Progress Report</h1>
+      <p>${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+      <p>${time === 'morning' ? '🌅 Morning Report' : time === 'evening' ? '🌙 Evening Report' : '🌃 Night Report'}</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat-box">
+        <h2>${completedCount}</h2>
+        <p>✅ Completed</p>
+      </div>
+      <div class="stat-box">
+        <h2>${pendingCount}</h2>
+        <p>⏳ Pending</p>
+      </div>
+      <div class="stat-box">
+        <h2>${completionRate}%</h2>
+        <p>📈 Completion Rate</p>
+      </div>
+    </div>
+`;
+
+    // COMPLETED TASKS SECTION
     if (completedTasks.length > 0) {
-      emailBody += '✅ COMPLETED TASKS:\n\n';
-      completedTasks.forEach(t => {
-        emailBody += `• ${t.description} (${t.category})\n`;
+      emailHTML += `
+    <div class="section">
+      <div class="section-title">✅ Completed Tasks (${completedTasks.length})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Category</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      completedTasks.forEach(task => {
+        emailHTML += `
+          <tr>
+            <td>${task.description}</td>
+            <td>${task.category}</td>
+            <td><span class="completed">✓ Done</span></td>
+          </tr>`;
       });
-      emailBody += '\n';
+      emailHTML += `
+        </tbody>
+      </table>
+    </div>`;
     }
 
-    // Add pending tasks section
+    // PENDING TASKS SECTION
     if (pendingTasks.length > 0) {
-      emailBody += '⏳ PENDING TASKS:\n\n';
-      pendingTasks.forEach(t => {
-        emailBody += `• ${t.description} (${t.category})\n`;
+      emailHTML += `
+    <div class="section">
+      <div class="section-title">⏳ Pending Tasks (${pendingTasks.length})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Category</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      pendingTasks.forEach(task => {
+        emailHTML += `
+          <tr>
+            <td>${task.description}</td>
+            <td>${task.category}</td>
+            <td><span class="pending">⏰ Pending</span></td>
+          </tr>`;
       });
-      emailBody += '\n';
+      emailHTML += `
+        </tbody>
+      </table>
+    </div>`;
     }
+
+    // DAILY LOGS SECTION
+    if (dailyLogs.length > 0) {
+      emailHTML += `
+    <div class="section">
+      <div class="section-title">📝 Daily Logs (${dailyLogs.length})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Log</th>
+            <th>Time Spent</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      dailyLogs.forEach(log => {
+        emailHTML += `
+          <tr>
+            <td><strong>${log.title}</strong></td>
+            <td>${log.log}</td>
+            <td><span class="time-badge">${log.timeSpent.hours}h ${log.timeSpent.minutes}m</span></td>
+          </tr>`;
+      });
+      emailHTML += `
+        </tbody>
+      </table>
+    </div>`;
+    }
+
+    // GROWTH SECTION
+    if (growths.length > 0) {
+      emailHTML += `
+    <div class="section">
+      <div class="section-title">🌱 Growth Insights (${growths.length})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Insight</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      growths.forEach(growth => {
+        emailHTML += `
+          <tr>
+            <td>${growth.line}</td>
+            <td><em>${growth.source}</em></td>
+          </tr>`;
+      });
+      emailHTML += `
+        </tbody>
+      </table>
+    </div>`;
+    }
+
+    // NOTES SECTION
+    if (notes.length > 0) {
+      emailHTML += `
+    <div class="section">
+      <div class="section-title">📌 Recent Notes (${notes.length})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Content</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      notes.forEach(note => {
+        emailHTML += `
+          <tr>
+            <td><strong>${note.title}</strong></td>
+            <td>${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}</td>
+          </tr>`;
+      });
+      emailHTML += `
+        </tbody>
+      </table>
+    </div>`;
+    }
+
+    // Empty state
+    if (completedTasks.length === 0 && pendingTasks.length === 0 && dailyLogs.length === 0 && growths.length === 0 && notes.length === 0) {
+      emailHTML += `
+    <div class="empty">
+      <p>📭 No activities recorded for today. Start adding tasks, logs, and notes!</p>
+    </div>`;
+    }
+
+    emailHTML += `
+    <div class="footer">
+      <p>🚀 Keep up the great work!</p>
+      <p>Generated by Advance Todo App</p>
+    </div>
+  </div>
+</body>
+</html>`;
 
     const mailOptions = {
-      from: `"Advance Todo" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER,
-      subject: `${time === 'morning' ? '🌅 Morning' : '🌙 Evening'} Task Reminder`,
-      text: `
-Hi there,
-
-${emailBody}
-Complete them in Advance Todo:
-${process.env.CLIENT_URL || 'http://localhost:3000'}
-
-Stay productive!
-      `.trim(),
+      from: `"Advance Todo Report" <${process.env.EMAIL_USER}>`,
+      to: 'shreyponkiya11@gmail.com',
+      subject: `${time === 'morning' ? '🌅 Morning' : time === 'evening' ? '🌙 Evening' : '🌃 Night'} Progress Report - ${new Date().toLocaleDateString()}`,
+      html: emailHTML,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`📨 ${time} email sent successfully`);
+    console.log(`📨 ${time} email sent successfully to shreyponkiya11@gmail.com`);
   } catch (err) {
     console.error('❌ Email send error:', err.message);
   }
 };
 
 // === CRON SCHEDULES ===
-// 🧪 TEST MODE: Send email every 1 minute
+// Schedule: 7:30 AM, 9:00 PM, 11:45 PM (IST)
 
 // Only run node-cron locally, NOT on Vercel
 if (!isVercel) {
-  // ✅ Email every 1 minute for testing (LOCAL ONLY)
-  cron.schedule('*/1 * * * *', () => {
-    console.log('⏰ Running Test Email Job (Every 1 minute) - LOCAL');
-    sendDailyEmails('test').catch(console.error);
-  });
+  // 7:30 AM IST = 2:00 AM UTC
+  cron.schedule('0 2 * * *', () => {
+    console.log('⏰ Running Morning Email Job (7:30 AM IST)');
+    sendDailyEmails('morning').catch(console.error);
+  }, { timezone: 'Asia/Kolkata' });
 
-  console.log('✅ 🧪 TEST MODE: Node-cron scheduled every 1 minute (LOCAL ONLY)');
+  // 9:00 PM IST = 3:30 PM UTC
+  cron.schedule('30 15 * * *', () => {
+    console.log('⏰ Running Evening Email Job (9:00 PM IST)');
+    sendDailyEmails('evening').catch(console.error);
+  }, { timezone: 'Asia/Kolkata' });
+
+  // 11:45 PM IST = 6:15 PM UTC
+  cron.schedule('15 18 * * *', () => {
+    console.log('⏰ Running Night Email Job (11:45 PM IST)');
+    sendDailyEmails('night').catch(console.error);
+  }, { timezone: 'Asia/Kolkata' });
+
+  console.log('✅ Cron jobs scheduled: 7:30 AM, 9:00 PM, 11:45 PM IST');
 } else {
   console.log('⚠️ Running on Vercel - Node-cron disabled. Using Vercel Cron instead.');
 }
-
-// 📝 PRODUCTION SCHEDULES (commented out for testing):
-// Uncomment these and remove the test schedule above when testing is complete
-
-// if (!isVercel) {
-//   // 8:00 AM IST = 2:30 AM UTC
-//   cron.schedule('30 2 * * *', () => {
-//     console.log('⏰ Running Morning Email Job (IST 8:00 AM)');
-//     sendDailyEmails('morning').catch(console.error);
-//   }, { timezone: 'Asia/Kolkata' });
-
-//   // 9:00 PM IST = 3:30 PM UTC
-//   cron.schedule('30 15 * * *', () => {
-//     console.log('⏰ Running Evening Email Job (IST 9:00 PM)');
-//     sendDailyEmails('evening').catch(console.error);
-//   }, { timezone: 'Asia/Kolkata' });
-
-//   console.log('✅ Cron jobs scheduled (Morning: 8:00 AM IST, Evening: 9:00 PM IST)');
-// }
 
 // === MANUAL EMAIL TRIGGER ENDPOINT (for testing or Vercel Cron) ===
 app.post('/api/send-email/:time', async (req, res) => {
   try {
     const { time } = req.params;
-    if (time !== 'morning' && time !== 'evening' && time !== 'test') {
-      return res.status(400).json({ error: 'Time must be "morning", "evening", or "test"' });
+    if (time !== 'morning' && time !== 'evening' && time !== 'night') {
+      return res.status(400).json({ error: 'Time must be "morning", "evening", or "night"' });
     }
     await sendDailyEmails(time);
     res.json({ message: `${time} email sent successfully` });
