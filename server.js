@@ -139,32 +139,39 @@ Stay productive!
 };
 
 // === CRON SCHEDULES ===
-// 🧪 TEST MODE: Send email every 1 minute (works in both local and live)
+// 🧪 TEST MODE: Send email every 1 minute
 
-// ✅ Email every 1 minute for testing
-cron.schedule('*/1 * * * *', () => {
-  console.log('⏰ Running Test Email Job (Every 1 minute)');
-  sendDailyEmails('test').catch(console.error);
-});
+// Only run node-cron locally, NOT on Vercel
+if (!isVercel) {
+  // ✅ Email every 1 minute for testing (LOCAL ONLY)
+  cron.schedule('*/1 * * * *', () => {
+    console.log('⏰ Running Test Email Job (Every 1 minute) - LOCAL');
+    sendDailyEmails('test').catch(console.error);
+  });
 
-console.log('✅ 🧪 TEST MODE: Emails will be sent every 1 minute (Local & Live)');
+  console.log('✅ 🧪 TEST MODE: Node-cron scheduled every 1 minute (LOCAL ONLY)');
+} else {
+  console.log('⚠️ Running on Vercel - Node-cron disabled. Using Vercel Cron instead.');
+}
 
 // 📝 PRODUCTION SCHEDULES (commented out for testing):
 // Uncomment these and remove the test schedule above when testing is complete
 
-// // 8:00 AM IST = 2:30 AM UTC
-// cron.schedule('30 2 * * *', () => {
-//   console.log('⏰ Running Morning Email Job (IST 8:00 AM)');
-//   sendDailyEmails('morning').catch(console.error);
-// }, { timezone: 'Asia/Kolkata' });
+// if (!isVercel) {
+//   // 8:00 AM IST = 2:30 AM UTC
+//   cron.schedule('30 2 * * *', () => {
+//     console.log('⏰ Running Morning Email Job (IST 8:00 AM)');
+//     sendDailyEmails('morning').catch(console.error);
+//   }, { timezone: 'Asia/Kolkata' });
 
-// // 9:00 PM IST = 3:30 PM UTC
-// cron.schedule('30 15 * * *', () => {
-//   console.log('⏰ Running Evening Email Job (IST 9:00 PM)');
-//   sendDailyEmails('evening').catch(console.error);
-// }, { timezone: 'Asia/Kolkata' });
+//   // 9:00 PM IST = 3:30 PM UTC
+//   cron.schedule('30 15 * * *', () => {
+//     console.log('⏰ Running Evening Email Job (IST 9:00 PM)');
+//     sendDailyEmails('evening').catch(console.error);
+//   }, { timezone: 'Asia/Kolkata' });
 
-// console.log('✅ Cron jobs scheduled (Morning: 8:00 AM IST, Evening: 9:00 PM IST);
+//   console.log('✅ Cron jobs scheduled (Morning: 8:00 AM IST, Evening: 9:00 PM IST)');
+// }
 
 // === MANUAL EMAIL TRIGGER ENDPOINT (for testing or Vercel Cron) ===
 app.post('/api/send-email/:time', async (req, res) => {
