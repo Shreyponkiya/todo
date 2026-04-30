@@ -170,8 +170,8 @@ console.log('✅ 🧪 TEST MODE: Emails will be sent every 1 minute (Local & Liv
 app.post('/api/send-email/:time', async (req, res) => {
   try {
     const { time } = req.params;
-    if (time !== 'morning' && time !== 'evening') {
-      return res.status(400).json({ error: 'Time must be "morning" or "evening"' });
+    if (time !== 'morning' && time !== 'evening' && time !== 'test') {
+      return res.status(400).json({ error: 'Time must be "morning", "evening", or "test"' });
     }
     await sendDailyEmails(time);
     res.json({ message: `${time} email sent successfully` });
