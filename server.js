@@ -42,8 +42,11 @@ mongoose.connect(process.env.MONGODB_URI, {
 });
 
 // === EMAIL TRANSPORTER ===
+// Check if running on Vercel
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+
 let transporter = null;
-if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+if (!isVercel && process.env.EMAIL_USER && process.env.EMAIL_PASS) {
   transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -60,6 +63,8 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       console.log('✅ Email transporter ready');
     }
   });
+} else if (isVercel) {
+  console.log('⚠️ Running on Vercel - Email notifications disabled for production.');
 } else {
   console.warn('⚠️ Email credentials not configured. Email notifications disabled.');
 }
@@ -135,24 +140,34 @@ Stay productive!
   }
 };
 
-// === CRON SCHEDULES (Indian Time) ===
+// === CRON SCHEDULES ===
 // Only run cron jobs if not on Vercel (Vercel doesn't support long-running processes)
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
 
 if (!isVercel) {
-  // 8:00 AM IST = 2:30 AM UTC
-  cron.schedule('30 2 * * *', () => {
-    console.log('⏰ Running Morning Email Job (IST 8:00 AM)');
-    sendDailyEmails('morning').catch(console.error);
-  }, { timezone: 'Asia/Kolkata' });
+  // 🧪 TESTING MODE: Send email every 2 minutes
+  cron.schedule('*/2 * * * *', () => {
+    console.log('⏰ Running Test Email Job (Every 2 minutes)');
+    sendDailyEmails('test').catch(console.error);
+  });
 
-  // 9:00 PM IST = 3:30 PM UTC
-  cron.schedule('30 15 * * *', () => {
-    console.log('⏰ Running Evening Email Job (IST 9:00 PM)');
-    sendDailyEmails('evening').catch(console.error);
-  }, { timezone: 'Asia/Kolkata' });
+  console.log('✅ 🧪 TEST MODE: Cron job scheduled to run every 2 minutes');
+  
+  // 📝 PRODUCTION SCHEDULES (commented out for testing):
+  // Uncomment these and remove the test schedule above when testing is complete
+  
+  // // 8:00 AM IST = 2:30 AM UTC
+  // cron.schedule('30 2 * * *', () => {
+  //   console.log('⏰ Running Morning Email Job (IST 8:00 AM)');
+  //   sendDailyEmails('morning').catch(console.error);
+  // }, { timezone: 'Asia/Kolkata' });
 
-  console.log('✅ Cron jobs scheduled (Morning: 8:00 AM IST, Evening: 9:00 PM IST)');
+  // // 9:00 PM IST = 3:30 PM UTC
+  // cron.schedule('30 15 * * *', () => {
+  //   console.log('⏰ Running Evening Email Job (IST 9:00 PM)');
+  //   sendDailyEmails('evening').catch(console.error);
+  // }, { timezone: 'Asia/Kolkata' });
+
+  // console.log('✅ Cron jobs scheduled (Morning: 8:00 AM IST, Evening: 9:00 PM IST)');
 } else {
   console.log('⚠️ Running on Vercel - Cron jobs disabled (use Vercel Cron instead)');
 }
