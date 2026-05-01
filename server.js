@@ -33,22 +33,35 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// === VERCEL DETECTION ===
+const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
+
 // === DATABASE CONNECTION ===
+let isDbConnected = false;
+
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log('✅ MongoDB connected'))
+.then(() => {
+  console.log('✅ MongoDB connected');
+  isDbConnected = true;
+})
 .catch((err) => {
   console.error('❌ MongoDB connection error:', err.message);
-  process.exit(1);
+  isDbConnected = false;
+  // Don't exit on Vercel, just log the error
+  if (!isVercel) {
+    process.exit(1);
+  }
 });
 
 // === EMAIL TRANSPORTER ===
 // ✅ EMAIL FUNCTIONALITY ENABLED - Emails will be sent in both local and production
-const isVercel = process.env.VERCEL === '1' || process.env.VERCEL === 'true';
 
 let transporter = null;
+let isTransporterReady = false;
+
 if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
   transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -58,23 +71,45 @@ if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
     },
   });
 
+  // Don't wait for verification, just create the transporter
   transporter.verify((err) => {
     if (err) {
       console.error('❌ Email transporter error:', err.message);
-      transporter = null;
+      isTransporterReady = false;
     } else {
       console.log('✅ Email transporter ready (Local & Live)');
+      isTransporterReady = true;
     }
   });
+  
+  // Assume it's ready for Vercel (verification happens async)
+  if (isVercel) {
+    isTransporterReady = true;
+  }
 } else {
   console.warn('⚠️ Email credentials not configured. Email notifications disabled.');
 }
 
 // === DAILY EMAIL SENDER ===
 const sendDailyEmails = async (time) => {
+  console.log(`📧 Starting email send for ${time}...`);
+  
   if (!transporter) {
-    console.warn('⚠️ Email transporter not available. Skipping email send.');
-    return;
+    const error = '⚠️ Email transporter not available. Skipping email send.';
+    console.warn(error);
+    throw new Error(error);
+  }
+
+  // Wait for DB connection on Vercel
+  if (isVercel && !isDbConnected) {
+    console.log('⏳ Waiting for database connection...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+
+  if (!isDbConnected) {
+    const error = '❌ Database not connected';
+    console.error(error);
+    throw new Error(error);
   }
 
   try {
@@ -82,6 +117,8 @@ const sendDailyEmails = async (time) => {
     todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(todayStart);
     todayEnd.setHours(23, 59, 59, 999);
+
+    console.log('📊 Fetching data from database...');
 
     // Find all pending tasks for today
     const pendingTasks = await Task.find({
@@ -106,6 +143,8 @@ const sendDailyEmails = async (time) => {
 
     // Find all notes (recent 10)
     const notes = await Note.find().sort({ createdAt: -1 }).limit(10);
+
+    console.log(`✅ Data fetched: ${completedTasks.length} completed, ${pendingTasks.length} pending, ${dailyLogs.length} logs, ${growths.length} growths, ${notes.length} notes`);
 
     // Calculate statistics
     const totalTasks = completedTasks.length + pendingTasks.length;
@@ -325,10 +364,14 @@ const sendDailyEmails = async (time) => {
       html: emailHTML,
     };
 
+    console.log('📤 Sending email...');
     await transporter.sendMail(mailOptions);
     console.log(`📨 ${time} email sent successfully to shreyponkiya11@gmail.com`);
+    return { success: true, message: 'Email sent successfully' };
   } catch (err) {
     console.error('❌ Email send error:', err.message);
+    console.error('Stack:', err.stack);
+    throw err;
   }
 };
 
@@ -362,16 +405,26 @@ if (!isVercel) {
 
 // === MANUAL EMAIL TRIGGER ENDPOINT (for testing or Vercel Cron) ===
 app.post('/api/send-email/:time', async (req, res) => {
+  console.log(`🔔 Email endpoint called: ${req.params.time}`);
+  
   try {
     const { time } = req.params;
     if (time !== 'morning' && time !== 'evening' && time !== 'night') {
+      console.error(`❌ Invalid time parameter: ${time}`);
       return res.status(400).json({ error: 'Time must be "morning", "evening", or "night"' });
     }
-    await sendDailyEmails(time);
-    res.json({ message: `${time} email sent successfully` });
+    
+    console.log(`✅ Valid time parameter: ${time}`);
+    const result = await sendDailyEmails(time);
+    res.json({ message: `${time} email sent successfully`, result });
   } catch (err) {
-    console.error('Manual email trigger error:', err);
-    res.status(500).json({ error: 'Failed to send email' });
+    console.error('❌ Manual email trigger error:', err.message);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ 
+      error: 'Failed to send email',
+      message: err.message,
+      details: err.stack
+    });
   }
 });
 
