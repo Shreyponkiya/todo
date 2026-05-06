@@ -14,15 +14,15 @@
   ],
   "crons": [
     {
-      "path": "/api/send-email/morning",
+      "path": "/api/cron/morning",
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/send-email/evening",
+      "path": "/api/cron/evening",
       "schedule": "30 15 * * *"
     },
     {
-      "path": "/api/send-email/night",
+      "path": "/api/cron/night",
       "schedule": "15 18 * * *"
     }
   ]

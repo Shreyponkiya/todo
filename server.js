@@ -428,6 +428,40 @@ app.post('/api/send-email/:time', async (req, res) => {
   }
 });
 
+// === VERCEL CRON ENDPOINTS (GET requests for Vercel Cron) ===
+app.get('/api/cron/morning', async (req, res) => {
+  console.log('🔔 Vercel Cron: Morning email triggered');
+  try {
+    const result = await sendDailyEmails('morning');
+    res.status(200).json({ success: true, message: 'Morning email sent', result });
+  } catch (err) {
+    console.error('❌ Vercel Cron morning error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/cron/evening', async (req, res) => {
+  console.log('🔔 Vercel Cron: Evening email triggered');
+  try {
+    const result = await sendDailyEmails('evening');
+    res.status(200).json({ success: true, message: 'Evening email sent', result });
+  } catch (err) {
+    console.error('❌ Vercel Cron evening error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/cron/night', async (req, res) => {
+  console.log('🔔 Vercel Cron: Night email triggered');
+  try {
+    const result = await sendDailyEmails('night');
+    res.status(200).json({ success: true, message: 'Night email sent', result });
+  } catch (err) {
+    console.error('❌ Vercel Cron night error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // === ERROR HANDLING ===
 app.use((err, req, res, next) => {
   console.error('Server error:', err.stack);
