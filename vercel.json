@@ -14,10 +14,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron-test",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron-morning",
       "schedule": "0 2 * * *"
     },
