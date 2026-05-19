@@ -87,200 +87,359 @@ async function sendEmail(time) {
   const pendingCount = pendingTasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
 
-  // Build HTML email
+  // Build HTML email with improved template
   let emailHTML = `
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-    .container { max-width: 800px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .header { text-align: center; padding: 20px 0; border-bottom: 3px solid #4CAF50; margin-bottom: 30px; }
-    .header h1 { color: #333; margin: 0; font-size: 28px; }
-    .header p { color: #666; margin: 5px 0 0 0; font-size: 14px; }
-    .stats { display: flex; justify-content: space-around; margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; }
-    .stat-box { text-align: center; color: white; }
-    .stat-box h2 { margin: 0; font-size: 36px; }
-    .stat-box p { margin: 5px 0 0 0; font-size: 14px; opacity: 0.9; }
-    .section { margin: 30px 0; }
-    .section-title { color: #333; font-size: 20px; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th { background-color: #4CAF50; color: white; padding: 12px; text-align: left; font-weight: 600; }
-    td { padding: 12px; border-bottom: 1px solid #e0e0e0; }
-    tr:hover { background-color: #f5f5f5; }
-    .completed { color: #4CAF50; font-weight: bold; }
-    .pending { color: #FF9800; font-weight: bold; }
-    .empty { text-align: center; color: #999; padding: 20px; font-style: italic; }
-    .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; color: #666; font-size: 12px; }
-    .time-badge { display: inline-block; padding: 4px 8px; background-color: #2196F3; color: white; border-radius: 4px; font-size: 12px; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    .email-wrapper { 
+      max-width: 800px; 
+      margin: 0 auto; 
+      background-color: #ffffff; 
+      border-radius: 16px; 
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .header { 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center; 
+      padding: 40px 30px;
+    }
+    .header h1 { 
+      font-size: 32px; 
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .header .date { 
+      font-size: 16px; 
+      opacity: 0.95;
+      font-weight: 500;
+    }
+    .header .report-type {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 8px 20px;
+      border-radius: 20px;
+      margin-top: 15px;
+      font-size: 14px;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+    }
+    .content { padding: 40px 30px; }
+    .stats-grid { 
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .stat-card { 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 25px;
+      border-radius: 12px;
+      text-align: center;
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    .stat-card h2 { 
+      font-size: 42px; 
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .stat-card p { 
+      font-size: 14px; 
+      opacity: 0.95;
+      font-weight: 500;
+    }
+    .section { 
+      margin-bottom: 35px;
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 12px;
+    }
+    .section-title { 
+      color: #2d3748;
+      font-size: 22px; 
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid #667eea;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .task-list { 
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .task-item { 
+      padding: 18px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    .task-item:last-child { border-bottom: none; }
+    .task-item:hover { background-color: #f7fafc; }
+    .task-info { flex: 1; }
+    .task-title { 
+      font-size: 16px;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 5px;
+    }
+    .task-category { 
+      font-size: 13px;
+      color: #718096;
+      background: #e2e8f0;
+      padding: 4px 12px;
+      border-radius: 12px;
+      display: inline-block;
+    }
+    .task-status { 
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-completed { 
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    .status-pending { 
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    .log-item {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border-left: 4px solid #667eea;
+    }
+    .log-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 10px;
+    }
+    .log-content {
+      color: #4a5568;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .time-badge { 
+      display: inline-block;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .growth-item {
+      background: white;
+      padding: 18px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border-left: 4px solid #48bb78;
+    }
+    .growth-text {
+      color: #2d3748;
+      font-size: 15px;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .growth-source {
+      color: #718096;
+      font-size: 13px;
+      font-style: italic;
+    }
+    .note-item {
+      background: white;
+      padding: 18px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      border-left: 4px solid #ed8936;
+    }
+    .note-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #2d3748;
+      margin-bottom: 8px;
+    }
+    .note-content {
+      color: #4a5568;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .empty-state { 
+      text-align: center; 
+      color: #a0aec0;
+      padding: 40px 20px;
+      font-size: 16px;
+      background: white;
+      border-radius: 8px;
+    }
+    .footer { 
+      background: #2d3748;
+      color: white;
+      text-align: center; 
+      padding: 30px;
+      font-size: 13px;
+    }
+    .footer p { margin: 5px 0; opacity: 0.9; }
+    .footer-highlight {
+      color: #667eea;
+      font-weight: 600;
+    }
+    @media only screen and (max-width: 600px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .header h1 { font-size: 24px; }
+      .stat-card h2 { font-size: 32px; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="email-wrapper">
     <div class="header">
       <h1>📊 Daily Progress Report</h1>
-      <p>${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-      <p>${time === 'morning' ? '🌅 Morning Report' : time === 'evening' ? '🌙 Evening Report' : '🌃 Night Report'}</p>
+      <div class="date">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+      <div class="report-type">${time === 'morning' ? '🌅 Morning Report' : time === 'evening' ? '🌙 Evening Report' : '🌃 Night Report'}</div>
     </div>
 
-    <div class="stats">
-      <div class="stat-box">
-        <h2>${completedCount}</h2>
-        <p>✅ Completed</p>
+    <div class="content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h2>${completedCount}</h2>
+          <p>✅ Completed</p>
+        </div>
+        <div class="stat-card">
+          <h2>${pendingCount}</h2>
+          <p>⏳ Pending</p>
+        </div>
+        <div class="stat-card">
+          <h2>${completionRate}%</h2>
+          <p>📈 Success Rate</p>
+        </div>
       </div>
-      <div class="stat-box">
-        <h2>${pendingCount}</h2>
-        <p>⏳ Pending</p>
-      </div>
-      <div class="stat-box">
-        <h2>${completionRate}%</h2>
-        <p>📈 Completion Rate</p>
-      </div>
-    </div>
 `;
 
   if (completedTasks.length > 0) {
     emailHTML += `
-    <div class="section">
-      <div class="section-title">✅ Completed Tasks (${completedTasks.length})</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Category</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      <div class="section">
+        <div class="section-title">✅ Completed Tasks (${completedTasks.length})</div>
+        <div class="task-list">`;
     completedTasks.forEach(task => {
       emailHTML += `
-          <tr>
-            <td>${task.description}</td>
-            <td>${task.category}</td>
-            <td><span class="completed">✓ Done</span></td>
-          </tr>`;
+          <div class="task-item">
+            <div class="task-info">
+              <div class="task-title">${task.description}</div>
+              <span class="task-category">${task.category}</span>
+            </div>
+            <span class="task-status status-completed">✓ Done</span>
+          </div>`;
     });
     emailHTML += `
-        </tbody>
-      </table>
-    </div>`;
+        </div>
+      </div>`;
   }
 
   if (pendingTasks.length > 0) {
     emailHTML += `
-    <div class="section">
-      <div class="section-title">⏳ Pending Tasks (${pendingTasks.length})</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Category</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      <div class="section">
+        <div class="section-title">⏳ Pending Tasks (${pendingTasks.length})</div>
+        <div class="task-list">`;
     pendingTasks.forEach(task => {
       emailHTML += `
-          <tr>
-            <td>${task.description}</td>
-            <td>${task.category}</td>
-            <td><span class="pending">⏰ Pending</span></td>
-          </tr>`;
+          <div class="task-item">
+            <div class="task-info">
+              <div class="task-title">${task.description}</div>
+              <span class="task-category">${task.category}</span>
+            </div>
+            <span class="task-status status-pending">⏰ Pending</span>
+          </div>`;
     });
     emailHTML += `
-        </tbody>
-      </table>
-    </div>`;
+        </div>
+      </div>`;
   }
 
   if (dailyLogs.length > 0) {
     emailHTML += `
-    <div class="section">
-      <div class="section-title">📝 Daily Logs (${dailyLogs.length})</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Log</th>
-            <th>Time Spent</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      <div class="section">
+        <div class="section-title">📝 Daily Logs (${dailyLogs.length})</div>`;
     dailyLogs.forEach(log => {
       emailHTML += `
-          <tr>
-            <td><strong>${log.title}</strong></td>
-            <td>${log.log}</td>
-            <td><span class="time-badge">${log.timeSpent.hours}h ${log.timeSpent.minutes}m</span></td>
-          </tr>`;
+        <div class="log-item">
+          <div class="log-title">${log.title}</div>
+          <div class="log-content">${log.log}</div>
+          <span class="time-badge">⏱️ ${log.timeSpent.hours}h ${log.timeSpent.minutes}m</span>
+        </div>`;
     });
     emailHTML += `
-        </tbody>
-      </table>
-    </div>`;
+      </div>`;
   }
 
   if (growths.length > 0) {
     emailHTML += `
-    <div class="section">
-      <div class="section-title">🌱 Growth Insights (${growths.length})</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Insight</th>
-            <th>Source</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      <div class="section">
+        <div class="section-title">🌱 Growth Insights (${growths.length})</div>`;
     growths.forEach(growth => {
       emailHTML += `
-          <tr>
-            <td>${growth.line}</td>
-            <td><em>${growth.source}</em></td>
-          </tr>`;
+        <div class="growth-item">
+          <div class="growth-text">${growth.line}</div>
+          <div class="growth-source">Source: ${growth.source}</div>
+        </div>`;
     });
     emailHTML += `
-        </tbody>
-      </table>
-    </div>`;
+      </div>`;
   }
 
   if (notes.length > 0) {
     emailHTML += `
-    <div class="section">
-      <div class="section-title">📌 Recent Notes (${notes.length})</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Content</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      <div class="section">
+        <div class="section-title">📌 Recent Notes (${notes.length})</div>`;
     notes.forEach(note => {
       emailHTML += `
-          <tr>
-            <td><strong>${note.title}</strong></td>
-            <td>${note.content.substring(0, 100)}${note.content.length > 100 ? '...' : ''}</td>
-          </tr>`;
+        <div class="note-item">
+          <div class="note-title">${note.title}</div>
+          <div class="note-content">${note.content.substring(0, 150)}${note.content.length > 150 ? '...' : ''}</div>
+        </div>`;
     });
     emailHTML += `
-        </tbody>
-      </table>
-    </div>`;
+      </div>`;
   }
 
   if (completedTasks.length === 0 && pendingTasks.length === 0 && dailyLogs.length === 0 && growths.length === 0 && notes.length === 0) {
     emailHTML += `
-    <div class="empty">
-      <p>📭 No activities recorded for today. Start adding tasks, logs, and notes!</p>
-    </div>`;
+      <div class="empty-state">
+        <p>📭 No activities recorded for today.</p>
+        <p>Start adding tasks, logs, and notes to track your progress!</p>
+      </div>`;
   }
 
   emailHTML += `
+    </div>
     <div class="footer">
-      <p>🚀 Keep up the great work!</p>
-      <p>Generated by Advance Todo App</p>
+      <p>🚀 <span class="footer-highlight">Keep up the great work!</span></p>
+      <p>Generated by Advance Todo App • ${new Date().toLocaleString()}</p>
+      <p>Sent to shreyponkiya11@gmail.com</p>
     </div>
   </div>
 </body>
@@ -299,11 +458,29 @@ async function sendEmail(time) {
 
 module.exports = async (req, res) => {
   try {
-    console.log('🔔 Vercel Cron: Morning email triggered');
-    const result = await sendEmail('morning');
-    res.status(200).json(result);
+    console.log('🔔 Vercel Cron: Morning email triggered at', new Date().toISOString());
+    
+    // Set timeout to ensure function doesn't hang
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Function timeout after 50 seconds')), 50000)
+    );
+    
+    const result = await Promise.race([
+      sendEmail('morning'),
+      timeoutPromise
+    ]);
+    
+    console.log('✅ Morning email sent successfully');
+    res.status(200).json({ success: true, result, timestamp: new Date().toISOString() });
   } catch (error) {
-    console.error('❌ Morning email error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('❌ Morning email error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    // Still return 200 to prevent Vercel from retrying
+    res.status(200).json({ 
+      success: false, 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 };
